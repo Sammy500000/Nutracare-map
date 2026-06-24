@@ -1,0 +1,19 @@
+node_modules/
+.env
+*.log
+.vercel
+public/data/
+
+# Large intermediate data (regenerable by the pipeline)
+data/pincode_india.csv
+data/mh_test.geojson
+data/ac_test.*
+data/*_raw.geojson
+data/geocode_cache.json
+
+# Google Maps scraper artifacts
+tools/google-maps-scraper/
+tools/gmaps-io/out/
+tools/gmaps-io/scrape.log
+tools/**/test_*.txt
+tools/**/test_*.json

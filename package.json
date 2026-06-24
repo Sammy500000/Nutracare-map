@@ -1,0 +1,21 @@
+{
+  "name": "natalcare-india-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nutracare India data map — zoomable, to-scale map with income/population/poshan/hospital/political layers and draw-to-aggregate.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "preview": "node -e \"process.env.MAP_NO_AUTH='1';require('./server.js')\""
+  },
+  "dependencies": {
+    "@vercel/edge": "^1.3.1",
+    "compression": "^1.7.4",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

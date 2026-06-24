@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nutracare India Map</title>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="styles.css" rel="stylesheet" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Top bar -->
+  <header id="topbar">
+    <button id="panel-toggle" title="Toggle panel" aria-label="Toggle panel">☰</button>
+    <div class="brand">
+      <span class="logo">◴</span>
+      <div>
+        <strong>Nutracare India Map</strong>
+        <small id="scope-label">Maharashtra · district level</small>
+      </div>
+    </div>
+    <div id="search-wrap">
+      <input id="search" type="text" placeholder="Search district / city…" autocomplete="off" />
+      <div id="search-results"></div>
+    </div>
+  </header>
+
+  <!-- Left control panel -->
+  <aside id="controls">
+    <div class="panel-section">
+      <h3>Data layer</h3>
+      <label class="radio"><input type="radio" name="metric" value="income_pci" checked /> Income — Est. PCI</label>
+      <label class="radio"><input type="radio" name="metric" value="income_strata" /> Income — Strata (S1–S4)</label>
+      <label class="radio"><input type="radio" name="metric" value="income_ultra" /> Income — % HIG+Ultra</label>
+      <label class="radio"><input type="radio" name="metric" value="pop_2027" /> Population (2027 est)</label>
+      <label class="radio"><input type="radio" name="metric" value="women_2035" /> Women 20–35</label>
+      <label class="radio"><input type="radio" name="metric" value="poshan_stunting" /> Poshan — Stunting %</label>
+      <label class="radio"><input type="radio" name="metric" value="poshan_beneficiaries" /> Poshan — Beneficiaries</label>
+      <label class="radio"><input type="radio" name="metric" value="none" /> None (boundaries only)</label>
+    </div>
+
+    <div class="panel-section">
+      <h3>Overlays</h3>
+      <label class="check"><input type="checkbox" id="toggle-hospitals" /> Hospitals</label>
+      <div id="hospital-filters" class="subfilters hidden">
+        <label class="check sm"><input type="checkbox" class="hfilter" value="Government" checked /> <span class="dot" style="background:#1d4ed8"></span> Government</label>
+        <label class="check sm"><input type="checkbox" class="hfilter" value="Private" checked /> <span class="dot" style="background:#ea8a1f"></span> Private</label>
+        <label class="check sm"><input type="checkbox" class="hfilter" value="Maternity" checked /> <span class="dot" style="background:#db2777"></span> Maternity / Neonatal</label>
+        <small id="hosp-count" class="hint" style="margin-top:2px"></small>
+      </div>
+      <label class="check"><input type="checkbox" id="toggle-political" /> Political (Assembly + MLA)</label>
+    </div>
+
+    <div class="panel-section">
+      <h3>Encircle &amp; consolidate</h3>
+      <div class="btn-row">
+        <button id="draw-polygon" class="tool-btn">▱ Draw area</button>
+        <button id="draw-clear" class="tool-btn ghost">Clear</button>
+      </div>
+      <small class="hint">Tap “Draw area”, tap points on the map, then tap “Finish”. Every district your shape touches is added in full. (Desktop: double-click also finishes.)</small>
+    </div>
+
+    <div class="panel-section legend-section">
+      <h3>Legend</h3>
+      <div id="legend"></div>
+    </div>
+
+    <div class="panel-section">
+      <small class="disclaimer" id="data-disclaimer">Loading data…</small>
+    </div>
+  </aside>
+
+  <!-- Right consolidated stats panel -->
+  <aside id="stats-panel" class="hidden">
+    <div class="stats-header">
+      <h3>Encircled region</h3>
+      <button id="stats-close">✕</button>
+    </div>
+    <div id="stats-body"></div>
+  </aside>
+
+  <!-- Loading + status -->
+  <div id="status-toast" class="hidden"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf@7.1.0/turf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

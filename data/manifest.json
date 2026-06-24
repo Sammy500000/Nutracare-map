@@ -1,0 +1,14 @@
+{
+  "generated": "2026-06-22",
+  "scope": "Maharashtra",
+  "level": "district",
+  "datasets": {
+    "districts": true,
+    "income": true,
+    "population": true,
+    "poshan": true,
+    "hospitals": true,
+    "constituencies": true
+  },
+  "disclaimer": "Income brackets are MODELED ESTIMATES (Census 2011 + SECC + NFHS-5 wealth quintiles + PMAY/RBI/Income-Tax brackets), not individual household records. Mumbai City + Suburban merged to the single Mumbai polygon. Hospitals are real Google Maps listings (exact coordinates) collected via the open-source google-maps-scraper."
+}

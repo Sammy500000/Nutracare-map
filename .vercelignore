@@ -1,0 +1,19 @@
+# Keep the Vercel upload lean — exclude scraper artifacts and large data intermediates.
+# The build only needs: data/manifest.json, districts.geojson, hospitals.geojson, constituencies.geojson
+node_modules
+tools
+pipeline
+preview.js
+*.log
+.env
+
+data/pincode_india.csv
+data/*_raw.geojson
+data/mh_pincodes.json
+data/mh_localities.json
+data/mh_2024_results.csv
+data/geocode_cache.json
+data/hospitals_sheets.geojson
+data/*.xlsx
+data/SOURCES.md
+data/VALIDATION.md
