@@ -1,6 +1,7 @@
 {
-  "generated": "2026-06-22",
-  "scope": "Maharashtra",
+  "generated": "2026-07-23",
+  "scope": "India",
+  "demographics_scope": "Maharashtra",
   "level": "district",
   "datasets": {
     "districts": true,
@@ -10,5 +11,11 @@
     "hospitals": true,
     "constituencies": true
   },
-  "disclaimer": "Income brackets are MODELED ESTIMATES (Census 2011 + SECC + NFHS-5 wealth quintiles + PMAY/RBI/Income-Tax brackets), not individual household records. Mumbai City + Suburban merged to the single Mumbai polygon. Hospitals are real Google Maps listings (exact coordinates) collected via the open-source google-maps-scraper."
+  "hospitals": {
+    "total": 16054,
+    "google_maps_exact": 5453,
+    "research_sheet_allindia": 10601,
+    "filters": ["type", "income_group", "ownership"]
+  },
+  "disclaimer": "Demographics (income, population, Poshan) and politics are Maharashtra, district level; income brackets are MODELED ESTIMATES (Census 2011 + SECC + NFHS-5 + PMAY/RBI/Income-Tax bands), not household records. Hospitals are all-India: 5,453 exact Google Maps listings for Maharashtra plus 10,601 from district-wise research (source:research_sheet; most placed at the district centroid and flagged approx:true). Each hospital carries a modeled income_group (High / Upper-mid / Mid / Low) and ownership tag."
 }

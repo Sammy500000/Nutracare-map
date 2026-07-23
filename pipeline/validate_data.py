@@ -184,26 +184,49 @@ def _which(x, y):
             if poly and _ring(x, y, poly[0]) and not any(_ring(x, y, h) for h in poly[1:]): return name
     return None
 
+from collections import Counter
 if not hospitals:
     warnings.append("  no hospitals.geojson yet — run the scraper + convert_scraped.py")
 else:
-    src_ok = sum(1 for f in hospitals if f["properties"].get("source") == "google_maps")
-    check(src_ok == len(hospitals), f"  {len(hospitals)-src_ok} hospital(s) not tagged source=google_maps")
-    bad_coord = [f["properties"]["name"] for f in hospitals
+    # The map now carries TWO hospital layers with different provenance guarantees:
+    #   • source=google_maps       — Maharashtra, exact coordinates, point-in-polygon district
+    #   • source=research_sheet     — all-India research (import_mastersheet.py); districts are
+    #                                 canonicalised, most points sit at the district centroid
+    #                                 (approx:true). These are validated more loosely.
+    gmaps = [f for f in hospitals if f["properties"].get("source") == "google_maps"]
+    research = [f for f in hospitals if f["properties"].get("source") == "research_sheet"]
+    other = [f for f in hospitals if f["properties"].get("source") not in ("google_maps", "research_sheet")]
+    check(len(other) == 0, f"  {len(other)} hospital(s) with an unexpected source tag")
+
+    # --- Google Maps layer: strict (exact coords + point-in-polygon district) ---
+    bad_coord = [f["properties"]["name"] for f in gmaps
                  if not (f["geometry"]["coordinates"][0] and f["geometry"]["coordinates"][1])]
-    check(len(bad_coord) == 0, f"  {len(bad_coord)} hospital(s) missing real coordinates: {bad_coord[:5]}")
+    check(len(bad_coord) == 0, f"  {len(bad_coord)} google_maps hospital(s) missing real coordinates: {bad_coord[:5]}")
     mismatch = []
-    for f in hospitals:
+    for f in gmaps:
         lon, lat = f["geometry"]["coordinates"]
         actual = _which(lon, lat)
         if actual is not None and f["properties"].get("district") not in (actual, None):
             mismatch.append(f"{f['properties']['name']}: tagged {f['properties'].get('district')} but coords in {actual}")
-    check(len(mismatch) == 0, f"  {len(mismatch)} hospital(s) with district != coordinate location: {mismatch[:5]}")
-    dups = len(hospitals) - len({f["properties"].get("place_id") or f["properties"]["name"] for f in hospitals})
-    check(dups == 0, f"  {dups} duplicate place_id(s) in hospitals")
-    from collections import Counter
+    check(len(mismatch) == 0, f"  {len(mismatch)} google_maps hospital(s) with district != coordinate location: {mismatch[:5]}")
+
+    # --- Whole dataset: no duplicate NON-EMPTY place_ids; every point has coords + the two
+    #     new classifier fields in their allowed value sets ---
+    pids = [f["properties"].get("place_id") for f in hospitals if f["properties"].get("place_id")]
+    check(len(pids) == len(set(pids)), f"  {len(pids)-len(set(pids))} duplicate non-empty place_id(s)")
+    ALLOWED_INCOME = {"HIGH", "UPPER_MID", "MID", "LOW"}
+    ALLOWED_OWNER = {"PRIVATE", "GOVERNMENT", "TRUST", "MISSION", "DEFENCE", "RAILWAY",
+                     "ESIC", "MUNICIPAL", "NGO", "OTHER"}
+    bad_income = [f["properties"]["name"] for f in hospitals if f["properties"].get("income_group") not in ALLOWED_INCOME]
+    bad_owner = [f["properties"]["name"] for f in hospitals if f["properties"].get("ownership") not in ALLOWED_OWNER]
+    check(len(bad_income) == 0, f"  {len(bad_income)} hospital(s) with income_group outside {ALLOWED_INCOME}: {bad_income[:5]}")
+    check(len(bad_owner) == 0, f"  {len(bad_owner)} hospital(s) with ownership outside the allowed set: {bad_owner[:5]}")
+    nocoord = [f for f in hospitals if not (f["geometry"]["coordinates"][0] and f["geometry"]["coordinates"][1])]
+    check(len(nocoord) == 0, f"  {len(nocoord)} hospital(s) missing coordinates")
+
     bytype = Counter(f["properties"]["type"] for f in hospitals)
-    warnings.append(f"  hospitals: {len(hospitals)} real Google Maps places, all with exact coordinates. by type: {dict(bytype)}")
+    warnings.append(f"  hospitals: {len(hospitals)} total = {len(gmaps)} Google Maps (exact) "
+                    f"+ {len(research)} research-sheet (all-India). by type: {dict(bytype)}")
 
 # ---- Report ----
 print("\n" + "=" * 60)

@@ -8,9 +8,17 @@ on the map against its source. Re-run anytime with:
 python pipeline/validate_data.py
 ```
 
-## Current status: ✅ PASS — 952/952 checks
+## Current status: ✅ PASS — 955/955 checks
 
 Every value displayed on the map matches the value in the source sheet / official dataset.
+
+> **Hospital layers (updated 2026-07-23).** The map now carries **16,054 hospitals**: **5,453**
+> exact Google Maps listings for Maharashtra (`source:google_maps`, point-in-polygon district)
+> **+ 10,601** from the all-India district-wise research mastersheet (`source:research_sheet`).
+> Research points keep their canonical district (assigned by point-in-polygon) but most sit at
+> the **district centroid** and are flagged **`approx:true`**. Every hospital additionally carries
+> a **modeled** `income_group` (High / Upper-mid / Mid / Low) and `ownership` tag — deterministic
+> keyword/brand classification, read as estimates. See [`IMPORT_REPORT.md`](IMPORT_REPORT.md).
 
 ## What is checked
 | # | Layer | Source of truth | Result |

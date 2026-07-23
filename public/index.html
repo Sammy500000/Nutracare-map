@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nutracare India Map</title>
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link href="styles.css" rel="stylesheet" />
 </head>
 <body>
@@ -17,7 +17,7 @@
       <span class="logo">◴</span>
       <div>
         <strong>Nutracare India Map</strong>
-        <small id="scope-label">Maharashtra · district level</small>
+        <small id="scope-label">MH demographics · all-India hospitals</small>
       </div>
     </div>
     <div id="search-wrap">
@@ -47,6 +47,28 @@
         <label class="check sm"><input type="checkbox" class="hfilter" value="Government" checked /> <span class="dot" style="background:#1d4ed8"></span> Government</label>
         <label class="check sm"><input type="checkbox" class="hfilter" value="Private" checked /> <span class="dot" style="background:#ea8a1f"></span> Private</label>
         <label class="check sm"><input type="checkbox" class="hfilter" value="Maternity" checked /> <span class="dot" style="background:#db2777"></span> Maternity / Neonatal</label>
+        <label class="hsel-label" for="income-filter">Income group</label>
+        <select id="income-filter" class="hsel">
+          <option value="all">All income groups</option>
+          <option value="HIGH">High</option>
+          <option value="UPPER_MID">Upper-mid</option>
+          <option value="MID">Mid</option>
+          <option value="LOW">Low</option>
+        </select>
+        <label class="hsel-label" for="ownership-filter">Ownership</label>
+        <select id="ownership-filter" class="hsel">
+          <option value="all">All ownership types</option>
+          <option value="PRIVATE">Private</option>
+          <option value="GOVERNMENT">Government</option>
+          <option value="TRUST">Trust</option>
+          <option value="MISSION">Mission</option>
+          <option value="DEFENCE">Defence</option>
+          <option value="RAILWAY">Railway</option>
+          <option value="ESIC">ESIC</option>
+          <option value="MUNICIPAL">Municipal</option>
+          <option value="NGO">NGO</option>
+          <option value="OTHER">Other</option>
+        </select>
         <small id="hosp-count" class="hint" style="margin-top:2px"></small>
       </div>
       <label class="check"><input type="checkbox" id="toggle-political" /> Political (Assembly + MLA)</label>
@@ -83,7 +105,7 @@
   <!-- Loading + status -->
   <div id="status-toast" class="hidden"></div>
 
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/@turf/turf@7.1.0/turf.min.js"></script>
   <script src="app.js"></script>
 </body>

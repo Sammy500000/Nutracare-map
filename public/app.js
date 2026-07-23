@@ -67,6 +67,20 @@ const DIV = ['#1a9850','#91cf60','#fee08b','#fc8d59','#d73027'];      // good→
 // ---- Helpers ----
 function fmtNum(n){ if(n==null||isNaN(n)) return '—'; return Math.round(n).toLocaleString('en-IN'); }
 function fmtINR(n){ if(n==null||isNaN(n)) return '—'; return '₹'+Math.round(n).toLocaleString('en-IN'); }
+// The choropleth is painted at fill-opacity over the light basemap, so a district reads
+// LIGHTER than its raw ramp colour. Legend chips must show that same composited colour or
+// they look darker/more saturated than the map. Mix each ramp colour over the basemap land
+// tone at the layer's actual fill-opacity so the chip == what the district shows on land.
+const CHORO_OPACITY = 0.62;        // keep in sync with district-fill 'fill-opacity'
+const LAND_RGB = [243, 239, 231];  // CARTO Voyager land tone (light cream)
+function _hexRgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function swatchColor(hex){
+  let a = CHORO_OPACITY;
+  try{ if(map&&map.getLayer&&map.getLayer('district-fill')){ const o=map.getPaintProperty('district-fill','fill-opacity'); if(typeof o==='number') a=o; } }catch(e){}
+  const [r,g,b]=_hexRgb(hex);
+  const mix=(c,l)=>Math.round(a*c + (1-a)*l);
+  return `rgb(${mix(r,LAND_RGB[0])}, ${mix(g,LAND_RGB[1])}, ${mix(b,LAND_RGB[2])})`;
+}
 function toast(msg, ms){ const t=document.getElementById('status-toast'); t.textContent=msg; t.classList.remove('hidden'); if(ms){ clearTimeout(t._t); t._t=setTimeout(()=>t.classList.add('hidden'),ms);} }
 function hideToast(){ document.getElementById('status-toast').classList.add('hidden'); }
 async function loadJSON(url){ try{ const r=await fetch(url); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } }
@@ -163,17 +177,21 @@ function renderLegend(key){
   if(key === 'income_strata'){
     const labels={S1:'S1 · High income',S2:'S2 · Upper-mid',S3:'S3 · Mid',S4:'S4 · Lower'};
     el.innerHTML = Object.keys(STRATA_COLORS).map(s=>
-      `<div class="legend-row"><span class="legend-swatch" style="background:${STRATA_COLORS[s]}"></span>${labels[s]}</div>`).join('');
+      `<div class="legend-row"><span class="legend-swatch" style="background:${swatchColor(STRATA_COLORS[s])}"></span>${labels[s]}</div>`).join('');
     return;
   }
   const m = METRICS[key]; if(!m){ el.innerHTML=''; return; }
   const palette = m.ramp==='diverging'?DIV:SEQ;
+  // Must mirror colorExpr() exactly: values below the first stop render in the
+  // base gray (#3a4450); [stops[i], stops[i+1]) -> palette[i]; ≥ last stop -> last colour.
   let rows = `<div class="legend-row" style="margin-bottom:4px"><strong>${m.label}</strong></div>`;
-  rows += `<div class="legend-row"><span class="legend-swatch" style="background:${palette[0]}"></span>&lt; ${m.fmt(m.stops[0])}</div>`;
+  rows += `<div class="legend-row"><span class="legend-swatch" style="background:${swatchColor('#3a4450')}"></span>&lt; ${m.fmt(m.stops[0])}</div>`;
   for(let i=0;i<m.stops.length;i++){
-    const c = palette[Math.min(i+1,palette.length-1)];
-    const lo = m.fmt(m.stops[i]);
-    rows += `<div class="legend-row"><span class="legend-swatch" style="background:${c}"></span>≥ ${lo}</div>`;
+    const c = palette[Math.min(i,palette.length-1)];
+    const label = (i < m.stops.length-1)
+      ? `${m.fmt(m.stops[i])} – ${m.fmt(m.stops[i+1])}`
+      : `≥ ${m.fmt(m.stops[i])}`;
+    rows += `<div class="legend-row"><span class="legend-swatch" style="background:${swatchColor(c)}"></span>${label}</div>`;
   }
   el.innerHTML = rows;
 }
@@ -203,16 +221,28 @@ function districtPopup(f, lngLat){
     html += row('Government', fmtNum(hc.Government));
     html += row('Private', fmtNum(hc.Private));
     html += row('Maternity / Neonatal', fmtNum(hc.Maternity));
+    const ig=hc.income, igParts=[];
+    if(ig.HIGH) igParts.push('High '+ig.HIGH);
+    if(ig.UPPER_MID) igParts.push('Upper-mid '+ig.UPPER_MID);
+    if(ig.MID) igParts.push('Mid '+ig.MID);
+    if(ig.LOW) igParts.push('Low '+ig.LOW);
+    if(igParts.length) html += row('By income', igParts.join(' · '));
     html += `</div>`;
   }
   new maplibregl.Popup({maxWidth:'300px'}).setLngLat(lngLat).setHTML(html).addTo(map);
 }
 
-// Count hospitals in a district (by the district name attached during scraping).
+// Count hospitals in a district (by the canonical district name, which the pipeline
+// assigns via point-in-polygon so both the scraped layer and the research layer agree).
 function hospitalCountsForDistrict(name){
   if(!State.hospitals) return null;
-  const c={total:0,Government:0,Private:0,Maternity:0};
-  State.hospitals.features.forEach(f=>{ if(f.properties.district===name){ c.total++; const t=f.properties.type; if(c[t]!=null) c[t]++; } });
+  const c={total:0,Government:0,Private:0,Maternity:0,income:{HIGH:0,UPPER_MID:0,MID:0,LOW:0}};
+  State.hospitals.features.forEach(f=>{
+    if(f.properties.district===name){
+      c.total++; const t=f.properties.type; if(c[t]!=null) c[t]++;
+      const ig=f.properties.income_group; if(ig&&c.income[ig]!=null) c.income[ig]++;
+    }
+  });
   return c;
 }
 
@@ -234,6 +264,15 @@ function bracketBar(p){
 // ---------- Hospitals ----------
 // No clustering — every hospital node is shown. Radius scales with zoom so the full
 // distribution is visible state-wide and individual pins are clickable when zoomed in.
+function hospitalMatch(p){
+  const allowed = Array.from(document.querySelectorAll('.hfilter:checked')).map(c=>c.value);
+  const inc = (document.getElementById('income-filter')||{}).value || 'all';
+  const own = (document.getElementById('ownership-filter')||{}).value || 'all';
+  if(!allowed.includes(p.type)) return false;
+  if(inc!=='all' && p.income_group!==inc) return false;
+  if(own!=='all' && p.ownership!==own) return false;
+  return true;
+}
 function addHospitalLayers(){
   map.addSource('hospitals', { type:'geojson', data: State.hospitals });
   map.addLayer({ id:'hosp-point', type:'circle', source:'hospitals',
@@ -244,17 +283,22 @@ function addHospitalLayers(){
       'circle-opacity':0.9 }, layout:{visibility:'none'} });
 
   map.on('click','hosp-point',(e)=>{
+    if(State.drawing) return;
     const p=e.features[0].properties;
     const row=(k,v)=>v?`<div class="popup-row"><span class="k">${k}</span><span>${v}</span></div>`:'';
     const rating=p.rating?`★ ${p.rating}${p.reviews?` (${p.reviews})`:''}`:'';
     const site=p.website?`<a href="${p.website}" target="_blank" rel="noopener">website</a>`:'';
     const maps=p.maps_link?`<a href="${p.maps_link}" target="_blank" rel="noopener">Google Maps ↗</a>`:'';
+    const incLbl={HIGH:'High',UPPER_MID:'Upper-mid',MID:'Mid',LOW:'Low'}[p.income_group]||p.income_group;
+    const ownLbl=p.ownership?p.ownership.charAt(0)+p.ownership.slice(1).toLowerCase().replace('_','-'):'';
+    const srcLbl=p.source==='research_sheet'?'research sheet'+((p.approx===true||p.approx==='true')?' · approx location':''):p.source;
     new maplibregl.Popup({maxWidth:'300px'}).setLngLat(e.lngLat).setHTML(
       `<h4>${p.name}</h4>`+
       row('Type',p.type)+row('Category',p.category)+row('District',p.district)+
+      row('Income group',incLbl)+row('Ownership',ownLbl)+
       row('Rating',rating)+row('Phone',p.phone)+row('Address',p.location)+
       ((site||maps)?`<div class="popup-row" style="gap:10px;margin-top:4px">${site} ${maps}</div>`:'')+
-      (p.source?`<div style="font-size:10.5px;color:var(--muted);margin-top:4px">source: ${p.source}</div>`:'')
+      (srcLbl?`<div style="font-size:10.5px;color:var(--muted);margin-top:4px">source: ${srcLbl}</div>`:'')
     ).addTo(map);
   });
   map.on('mouseenter','hosp-point',()=>map.getCanvas().style.cursor='pointer');
@@ -263,16 +307,26 @@ function addHospitalLayers(){
 function setHospitalsVisible(v){
   if(map.getLayer('hosp-point')) map.setLayoutProperty('hosp-point','visibility', v?'visible':'none');
   document.getElementById('hospital-filters').classList.toggle('hidden', !v);
-  if(v && State.hospitals){
-    const c={Government:0,Private:0,Maternity:0};
-    State.hospitals.features.forEach(f=>{const t=f.properties.type; if(c[t]!=null)c[t]++;});
-    document.getElementById('hosp-count').textContent =
-      `${fmtNum(State.hospitals.features.length)} hospitals · ${fmtNum(c.Government)} govt · ${fmtNum(c.Private)} private · ${fmtNum(c.Maternity)} maternity`;
-  }
+  if(v) updateHospCount();
+}
+function updateHospCount(){
+  if(!State.hospitals) return;
+  const feats=State.hospitals.features.filter(f=>hospitalMatch(f.properties)), c={Government:0,Private:0,Maternity:0};
+  feats.forEach(f=>{const t=f.properties.type; if(c[t]!=null)c[t]++;});
+  const total=State.hospitals.features.length, shown=feats.length;
+  const prefix = shown<total ? `${fmtNum(shown)} of ${fmtNum(total)} hospitals` : `${fmtNum(total)} hospitals`;
+  document.getElementById('hosp-count').textContent =
+    `${prefix} · ${fmtNum(c.Government)} govt · ${fmtNum(c.Private)} private · ${fmtNum(c.Maternity)} maternity`;
 }
 function applyHospitalFilter(){
   const allowed = Array.from(document.querySelectorAll('.hfilter:checked')).map(c=>c.value);
-  if(map.getLayer('hosp-point')) map.setFilter('hosp-point',['in',['get','type'],['literal',allowed]]);
+  const inc = (document.getElementById('income-filter')||{}).value || 'all';
+  const own = (document.getElementById('ownership-filter')||{}).value || 'all';
+  const preds = [['in',['get','type'],['literal',allowed]]];
+  if(inc!=='all') preds.push(['==',['get','income_group'],inc]);
+  if(own!=='all') preds.push(['==',['get','ownership'],own]);
+  if(map.getLayer('hosp-point')) map.setFilter('hosp-point',['all',...preds]);
+  updateHospCount();
 }
 
 // ---------- Political ----------
@@ -386,19 +440,22 @@ function aggregate(){
     if(map.getLayer('district-selected')) map.setFilter('district-selected',['in',['get','name'],['literal',selectedFills]]);
   }
 
-  // Hospitals are counted for the SELECTED DISTRICTS (consistent with population/income/poshan
-  // being counted in full). A hospital's `district` is assigned from its real coordinates, so
-  // this is exact. Falls back to point-in-polygon only if no districts were selected.
-  const hosp={Government:0,Private:0,Maternity:0,Other:0,total:0,categories:{}};
+  // Hospitals counted if they belong to a SELECTED Maharashtra district (counted in full,
+  // consistent with the demographics) OR fall geographically inside the drawn shape. The
+  // point-in-polygon arm makes the tool work ALL-INDIA — drawing over any state consolidates
+  // its hospitals even where there is no district polygon/demographic layer.
+  const hosp={Government:0,Private:0,Maternity:0,Other:0,total:0,categories:{},
+    income:{HIGH:0,UPPER_MID:0,MID:0,LOW:0}, ownership:{}};
   if(State.hospitals){
     turf.featureEach(State.hospitals,(f)=>{
       try{
-        const inSel = selectedNames.size>0
-          ? selectedNames.has(f.properties.district)
-          : turf.booleanPointInPolygon(f,poly);
+        const inSel = (selectedNames.size>0 && selectedNames.has(f.properties.district))
+          || turf.booleanPointInPolygon(f,poly);
         if(inSel){
           hosp.total++; const t=f.properties.type; hosp[t!=null&&hosp[t]!=null?t:'Other']++;
           const cat=f.properties.category||'(uncategorised)'; hosp.categories[cat]=(hosp.categories[cat]||0)+1;
+          const ig=f.properties.income_group; if(ig&&hosp.income[ig]!=null) hosp.income[ig]++;
+          const ow=f.properties.ownership||'OTHER'; hosp.ownership[ow]=(hosp.ownership[ow]||0)+1;
         }
       }catch(e){}
     });
@@ -424,7 +481,7 @@ function renderStats(agg,hosp,acs){
 
   html+=`<div class="stat-group"><h4>Selected districts (${agg.districts.length})</h4>`;
   if(agg.districts.length) html+=`<div class="chip-row">${agg.districts.map(d=>`<span class="chip">${d.name}</span>`).join('')}</div>`;
-  else html+=`<div style="font-size:12px;color:var(--muted)">No districts selected — draw around district centres.</div>`;
+  else html+=`<div style="font-size:12px;color:var(--muted)">No Maharashtra districts selected. Population / income / Poshan cover Maharashtra only; the hospital totals below still count every hospital inside your drawn shape, nationwide.</div>`;
   html+=`</div>`;
 
   html+=`<div class="stat-group"><h4>Population</h4>`;
@@ -455,6 +512,18 @@ function renderStats(agg,hosp,acs){
     html+=sr('Government', fmtNum(hosp.Government));
     html+=sr('Private', fmtNum(hosp.Private));
     html+=sr('Maternity / Neonatal', fmtNum(hosp.Maternity));
+    const IG=[['HIGH','High'],['UPPER_MID','Upper-mid'],['MID','Mid'],['LOW','Low']];
+    if(IG.some(([k])=>hosp.income[k]>0)){
+      html+=`<div style="margin-top:8px"><span class="k" style="font-size:11px">By income group</span>`;
+      IG.forEach(([k,lab])=>{ if(hosp.income[k]>0) html+=sr(lab, fmtNum(hosp.income[k])); });
+      html+=`</div>`;
+    }
+    const own=Object.entries(hosp.ownership||{}).sort((a,b)=>b[1]-a[1]);
+    if(own.length){
+      html+=`<div style="margin-top:8px"><span class="k" style="font-size:11px">By ownership</span>`;
+      own.forEach(([k,n])=>html+=sr(k.charAt(0)+k.slice(1).toLowerCase().replace('_','-'), fmtNum(n)));
+      html+=`</div>`;
+    }
     const cats=Object.entries(hosp.categories||{}).sort((a,b)=>b[1]-a[1]);
     if(cats.length){
       html+=`<div style="margin-top:8px"><span class="k" style="font-size:11px">By Google category</span>`;
@@ -474,7 +543,7 @@ function renderStats(agg,hosp,acs){
     html+=`</div>`;
   }
 
-  html+=`<div class="stat-group"><small class="disclaimer">Any district the drawn region touches is counted in full — population, income, Poshan and hospitals all reflect the whole selected districts. Income = modeled household-bracket estimates; hospitals = real Google Maps listings; political by constituency centroid.</small></div>`;
+  html+=`<div class="stat-group"><small class="disclaimer">Any Maharashtra district the drawn region touches is counted in full for population, income &amp; Poshan (modeled household-bracket estimates; MH-only). Hospitals are counted nationwide — Maharashtra by whole district, elsewhere by point-in-polygon of your shape — and include real Google Maps listings plus the all-India research layer (income group &amp; ownership are modeled classifications). Political by constituency centroid (MH).</small></div>`;
 
   body.innerHTML=html;
   panel.classList.remove('hidden');
@@ -507,6 +576,7 @@ document.addEventListener('click',(e)=>{ if(!e.target.closest('#search-wrap')) s
 document.querySelectorAll('input[name=metric]').forEach(r=>r.addEventListener('change',e=>setMetric(e.target.value)));
 document.getElementById('toggle-hospitals').addEventListener('change',e=>setHospitalsVisible(e.target.checked));
 document.querySelectorAll('.hfilter').forEach(c=>c.addEventListener('change',applyHospitalFilter));
+['income-filter','ownership-filter'].forEach(id=>{const el=document.getElementById(id); if(el) el.addEventListener('change',applyHospitalFilter);});
 document.getElementById('toggle-political').addEventListener('change',e=>setPoliticalVisible(e.target.checked));
 document.getElementById('draw-polygon').addEventListener('click',()=>{ if(State.drawing) stopDrawing(true); else startDrawing(); });
 document.getElementById('draw-clear').addEventListener('click',clearDraw);

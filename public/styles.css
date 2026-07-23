@@ -63,6 +63,8 @@ html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, -apple
 .radio, .check { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; cursor: pointer; }
 .check.sm, .radio.sm { font-size: 12px; color: var(--muted); }
 .subfilters { margin: 4px 0 4px 18px; }
+.hsel-label { display: block; margin: 8px 0 3px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.hsel { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 12.5px; outline: none; cursor: pointer; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .btn-row { display: flex; gap: 8px; }
 .tool-btn {

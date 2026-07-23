@@ -3,6 +3,8 @@ node_modules/
 *.log
 .vercel
 public/data/
+__pycache__/
+*.pyc
 
 # Large intermediate data (regenerable by the pipeline)
 data/pincode_india.csv
@@ -10,6 +12,13 @@ data/mh_test.geojson
 data/ac_test.*
 data/*_raw.geojson
 data/geocode_cache.json
+
+# Mastersheet importer intermediates + backups (regenerable; coords are baked into hospitals.geojson)
+data/_ms_parsed.json
+data/_ms_classified.json
+data/_ms_existing_backfilled.json
+data/_ms_geocoded.json
+data/*.bak
 
 # Google Maps scraper artifacts
 tools/google-maps-scraper/
